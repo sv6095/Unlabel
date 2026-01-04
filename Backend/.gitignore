@@ -1,0 +1,13 @@
+# Media
+*.mov
+*.mp4
+*.avi
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+.env
