@@ -17,6 +17,7 @@ import os
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://unlabel-eight.vercel.app")
 ALLOWED_ORIGINS = [
     FRONTEND_URL,
+    "https://unlabel-eight.vercel.app",
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
