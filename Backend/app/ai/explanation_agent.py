@@ -5,7 +5,7 @@ Explains pre-computed decisions clearly and calmly
 import google.generativeai as genai
 import json
 from config.settings import GEMINI_API_KEY
-from app.ai.schemas import Decision, ConsumerExplanation
+from app.ai.schemas import Decision, ConsumerExplanation, QuickInsight, StructuredIngredientAnalysis
 
 class ExplanationAgent:
     def __init__(self):
@@ -14,6 +14,60 @@ class ExplanationAgent:
             return
         genai.configure(api_key=GEMINI_API_KEY)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
+
+    async def generate_quick_insight(
+        self, 
+        decision: Decision, 
+        structured_analysis: StructuredIngredientAnalysis
+    ) -> QuickInsight:
+        """
+        Generate a one-line summary for instant understanding.
+        """
+        if not self.model:
+            return QuickInsight(
+                summary=f"This product is rated '{decision.verdict}' based on its ingredient profile.",
+                uncertainty_reason=None
+            )
+
+        system_prompt = """You are a food intelligence assistant.
+
+Generate a ONE-SENTENCE summary that gives instant understanding.
+Be clear, direct, and avoid jargon."""
+
+        user_prompt = f"""Create a one-sentence summary for this decision:
+
+Verdict: {decision.verdict}
+Key Signals: {', '.join(decision.key_signals[:3])}
+Processing Level: {structured_analysis.ingredient_summary.processing_level}
+Sugar Dominant: {structured_analysis.food_properties.sugar_dominant}
+
+Return JSON:
+{{
+  "summary": "One clear sentence (max 20 words)",
+  "uncertainty_reason": "null or brief reason if information is incomplete"
+}}"""
+
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.model.generate_content(
+                    [system_prompt, user_prompt],
+                    generation_config=genai.types.GenerationConfig(
+                        response_mime_type="application/json",
+                        temperature=0.4
+                    )
+                )
+            )
+            
+            data = json.loads(response.text.strip())
+            return QuickInsight(**data)
+        except Exception as e:
+            print(f"Quick insight generation error: {e}")
+            return QuickInsight(
+                summary=f"This product is rated '{decision.verdict}'."
+            )
 
     async def explain(self, decision: Decision) -> ConsumerExplanation:
         """

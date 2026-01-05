@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { AIInput } from '@/components/ui/AIInput';
 import { FoodScanner } from '@/components/ui/FoodScanner';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { DecisionCard } from '@/components/ui/DecisionCard';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -20,6 +21,17 @@ interface AnalysisResult {
 }
 
 // New Decision Engine Types
+interface IngredientTranslation {
+  term: string;
+  simple_explanation: string;
+  category: string;
+}
+
+interface QuickInsight {
+  summary: string;
+  uncertainty_reason?: string;
+}
+
 interface ConsumerExplanation {
   verdict: string;
   why_this_matters: string[];
@@ -28,10 +40,13 @@ interface ConsumerExplanation {
 }
 
 interface DecisionEngineResponse {
+  quick_insight: QuickInsight;
   verdict: string; // "Daily", "Occasional", or "Limit Frequent Use"
   explanation: ConsumerExplanation;
   intent_classified: "quick_yes_no" | "comparison" | "risk_check" | "curiosity";
   key_signals: string[];
+  ingredient_translations: IngredientTranslation[];
+  uncertainty_flags: string[];
   structured_analysis?: any; // Optional technical details
 }
 
@@ -207,80 +222,9 @@ const Copilot = () => {
                   </div>
                 )}
 
-                {/* New Decision Engine Response */}
+                {/* New Decision Engine Response - AI-Native Design */}
                 {msg.type === 'decision' && msg.decision && (
-                  <GlassCard 
-                    variant={
-                      msg.decision.verdict === 'Daily' ? 'green' :
-                      msg.decision.verdict === 'Occasional' ? 'neutral' : 'red'
-                    } 
-                    className="p-6"
-                  >
-                    {/* Verdict Badge */}
-                    <div className="mb-4">
-                      <span className={cn(
-                        "inline-block px-4 py-2 text-sm font-bold uppercase rounded-lg",
-                        msg.decision.verdict === 'Daily' && "bg-primary/20 text-primary",
-                        msg.decision.verdict === 'Occasional' && "bg-foreground/10 text-foreground",
-                        msg.decision.verdict === 'Limit Frequent Use' && "bg-secondary/20 text-secondary"
-                      )}>
-                        {msg.decision.verdict}
-                      </span>
-                    </div>
-
-                    {/* Explanation */}
-                    <div className="space-y-4 mb-6">
-                      <div>
-                        <h4 className="text-xs font-bold uppercase mb-2 text-muted-foreground">
-                          Why This Matters
-                        </h4>
-                        <ul className="space-y-1">
-                          {msg.decision.explanation.why_this_matters.map((point, i) => (
-                            <li key={i} className="text-sm text-foreground">
-                              • {point}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold uppercase mb-2 text-muted-foreground">
-                          When It Makes Sense
-                        </h4>
-                        <p className="text-sm text-foreground">
-                          {msg.decision.explanation.when_it_makes_sense}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold uppercase mb-2 text-muted-foreground">
-                          What To Know
-                        </h4>
-                        <p className="text-sm text-foreground">
-                          {msg.decision.explanation.what_to_know}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Key Signals */}
-                    {msg.decision.key_signals && msg.decision.key_signals.length > 0 && (
-                      <div className="pt-4 border-t border-border">
-                        <h4 className="text-xs font-bold uppercase mb-3 text-muted-foreground">
-                          Key Signals
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {msg.decision.key_signals.map((signal, i) => (
-                            <span
-                              key={i}
-                              className="px-3 py-1 text-xs border border-border bg-muted/30 rounded-full"
-                            >
-                              {signal}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </GlassCard>
+                  <DecisionCard decision={msg.decision} />
                 )}
 
                 {/* Legacy Analysis Format (for backward compatibility) */}

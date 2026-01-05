@@ -58,7 +58,21 @@ class ConsumerExplanation(BaseModel):
     when_it_makes_sense: str
     what_to_know: str
 
+class IngredientTranslation(BaseModel):
+    """Simple explanation of complex ingredients"""
+    term: str
+    simple_explanation: str
+    category: str  # e.g., "preservative", "sweetener", "emulsifier"
+
+class QuickInsight(BaseModel):
+    """One-line summary for instant understanding"""
+    summary: str  # One clear sentence
+    uncertainty_reason: Optional[str] = None
+
 class DecisionEngineResponse(BaseModel):
+    # Instant understanding (show first)
+    quick_insight: QuickInsight
+    
     # Consumer-facing (primary)
     verdict: str  # "Daily", "Occasional", or "Limit Frequent Use"
     explanation: ConsumerExplanation
@@ -66,6 +80,12 @@ class DecisionEngineResponse(BaseModel):
     # Supporting information
     intent_classified: Literal["quick_yes_no", "comparison", "risk_check", "curiosity"]
     key_signals: List[str]  # Top signals that influenced the decision
+    
+    # Ingredient translation (explain complex terms)
+    ingredient_translations: List[IngredientTranslation] = []
+    
+    # Uncertainty flags
+    uncertainty_flags: List[str] = []
     
     # Technical details (optional, for transparency/debugging)
     structured_analysis: Optional[StructuredIngredientAnalysis] = None
