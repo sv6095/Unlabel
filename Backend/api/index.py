@@ -4,10 +4,13 @@ import os
 
 # Add the Backend directory to the Python path
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, backend_dir)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
+from mangum import Mangum
 from app.main import app
 
-# Vercel Python runtime automatically handles ASGI apps
-# Just export the app instance
+# Create Mangum handler for Vercel
+# lifespan="off" disables lifespan events which can cause issues in serverless
+handler = Mangum(app, lifespan="off")
 

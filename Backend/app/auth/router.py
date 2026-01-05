@@ -7,7 +7,11 @@ from app.db.models import User, Base
 from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse
 from app.auth.service import hash_password, verify_password, create_access_token
 
-Base.metadata.create_all(bind=engine)
+# Initialize database tables (only create if they don't exist)
+try:
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as e:
+    print(f"Database initialization warning: {e}")
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 

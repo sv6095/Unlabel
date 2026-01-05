@@ -8,8 +8,11 @@ from app.db.database import SessionLocal, engine
 from app.db.models import User
 from typing import List
 
-# Ensure table exists
-AnalysisHistory.metadata.create_all(bind=engine)
+# Ensure table exists (only create if they don't exist)
+try:
+    AnalysisHistory.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as e:
+    print(f"AI table initialization warning: {e}")
 
 router = APIRouter(prefix="/analyze", tags=["AI Analysis"])
 

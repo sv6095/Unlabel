@@ -59,5 +59,6 @@ dependencies = [
     "uritemplate",
     "urllib3>=2.6.2",
     "uvicorn==0.40.0",
-    "google-generativeai==0.8.1"
+    "google-generativeai==0.8.1",
+    "mangum>=0.17.0"
 ]
