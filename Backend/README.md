@@ -6,7 +6,7 @@ The backend serves as the **Reasoning Engine**. It does not just look up ingredi
 ## 🛠️ Technology Stack
 *   **Framework:** FastAPI (Python)
 *   **AI Model:** Google Gemini 2.5 Flash (`google-generativeai`)
-*   **Database:** SQLite (via SQLAlchemy)
+*   **Database:** PostgreSQL (via SQLAlchemy)
 *   **Authentication:** JWT (JSON Web Tokens) with Argon2 hashing.
 *   **External APIs:** Open Food Facts API for global product database access
 

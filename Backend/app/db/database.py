@@ -3,30 +3,29 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from config.settings import DATABASE_URL
 import os
 
-# For SQLite, adjust connection args based on environment
-connect_args = {}
-if DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-    # In serverless environments (Vercel), use /tmp for SQLite
-    # Vercel provides /tmp as writable directory
-    if os.getenv("VERCEL") or os.getenv("ENV") == "production":
-        # Use /tmp directory for SQLite in serverless (Vercel)
-        db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
-        if db_path and not db_path.startswith("/tmp"):
-            # Use /tmp as fallback for serverless
-            db_name = os.path.basename(db_path) if db_path and "/" in db_path else (db_path or "food_intelligence.db")
-            DATABASE_URL = f"sqlite:////tmp/{db_name}"
+# PostgreSQL configuration for production
+# Vercel Postgres connection string format:
+# postgresql://user:password@host:port/database?sslmode=require
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10,
+}
 
-try:
-    engine = create_engine(
-        DATABASE_URL, connect_args=connect_args, pool_pre_ping=True
+# For serverless (Vercel), use smaller connection pool
+if os.getenv("VERCEL"):
+    engine_kwargs["pool_size"] = 1
+    engine_kwargs["max_overflow"] = 0
+
+# Validate that DATABASE_URL is PostgreSQL
+if not DATABASE_URL or not (DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")):
+    raise ValueError(
+        "DATABASE_URL must be a PostgreSQL connection string. "
+        "Please set DATABASE_URL or POSTGRES_URL environment variable. "
+        "Example: postgresql://user:password@host:port/database?sslmode=require"
     )
-except Exception as e:
-    print(f"Database engine creation error: {e}")
-    # Fallback to in-memory database if file-based fails
-    if DATABASE_URL.startswith("sqlite"):
-        DATABASE_URL = "sqlite:///:memory:"
-        engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
