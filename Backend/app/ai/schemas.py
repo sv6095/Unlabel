@@ -14,18 +14,3 @@ class AnalysisResponse(BaseModel):
     trade_offs: TradeOff
     uncertainty_note: Optional[str] = None
 
-class HistoryItem(BaseModel):
-    id: str
-    date: str
-    time: str
-    title: Optional[str] = None
-    preview: str
-    variant: str = "neutral"
-
-class HistoryDetail(HistoryItem):
-    full_result: dict
-    input_type: str
-    input_content: str
-
-class HistoryUpdate(BaseModel):
-    title: str

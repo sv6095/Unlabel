@@ -1,11 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { AIInput } from '@/components/ui/AIInput';
 import { FoodScanner } from '@/components/ui/FoodScanner';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 
 // Types
@@ -31,18 +29,7 @@ interface Message {
   timestamp: Date;
 }
 
-interface HistoryDetail {
-  id: string;
-  full_result: AnalysisResult;
-  input_type: 'text' | 'image';
-  input_content: string;
-  title?: string;
-}
-
 const Copilot = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -58,64 +45,6 @@ const Copilot = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Load History
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchHistory = async () => {
-      setIsTyping(true);
-      try {
-        const response = await api.get<HistoryDetail>(`/analyze/history/${id}`);
-        const data = response.data;
-
-        const historyMessages: Message[] = [];
-
-        if (data.input_type === 'image') {
-          historyMessages.push({
-            id: `hist-${data.id}-user`,
-            role: 'user',
-            type: 'image',
-            content: 'Analyzed Image',
-            timestamp: new Date(),
-          });
-        } else {
-          historyMessages.push({
-            id: `hist-${data.id}-user`,
-            role: 'user',
-            type: 'text',
-            content: data.input_content,
-            timestamp: new Date(),
-          });
-        }
-
-        historyMessages.push({
-          id: `hist-${data.id}-ai`,
-          role: 'ai',
-          type: 'analysis',
-          analysis: data.full_result,
-          timestamp: new Date(),
-        });
-
-        setMessages((prev) => [prev[0], ...historyMessages]);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: 'error',
-            role: 'ai',
-            type: 'text',
-            content: "I couldn't retrieve that past conversation.",
-            timestamp: new Date(),
-          },
-        ]);
-      } finally {
-        setIsTyping(false);
-      }
-    };
-
-    fetchHistory();
-  }, [id]);
 
   // Auto-scroll
   useEffect(() => {
@@ -232,7 +161,7 @@ const Copilot = () => {
                   />
                 ) : (
                   <span className="text-xs font-medium text-foreground">
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                    U
                   </span>
                 )}
               </div>

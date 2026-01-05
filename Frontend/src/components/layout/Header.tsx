@@ -1,17 +1,9 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 rounded-none">
@@ -34,37 +26,6 @@ export function Header() {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6 rounded-none">
               <NavLink to="/analyze">Analyze</NavLink>
-
-              {isAuthenticated && (
-                <NavLink to="/history">History</NavLink>
-              )}
-
-              {isAuthenticated ? (
-                <>
-                  <NavLink to="/profile">{user?.name}</NavLink>
-                  <button
-                    onClick={handleLogout}
-                    className="text-muted-foreground hover:text-foreground transition-colors font-body text-sm rounded-none"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <NavLink to="/login">Sign In</NavLink>
-                  <Link
-                    to="/register"
-                    className={cn(
-                      "px-4 py-2 border rounded-none",
-                      "bg-primary/20 border-primary/30",
-                      "text-primary-foreground font-body text-sm",
-                      "hover:bg-primary/30 transition-all duration-300"
-                    )}
-                  >
-                    Get Started
-                  </Link>
-                </>
-              )}
             </nav>
 
             {/* Mobile Menu Toggle */}
@@ -89,38 +50,6 @@ export function Header() {
             <MobileNavLink to="/analyze" onClick={() => setIsMenuOpen(false)}>
               Analyze
             </MobileNavLink>
-
-            {isAuthenticated && (
-              <MobileNavLink to="/history" onClick={() => setIsMenuOpen(false)}>
-                History
-              </MobileNavLink>
-            )}
-
-            {isAuthenticated ? (
-              <>
-                <MobileNavLink to="/profile" onClick={() => setIsMenuOpen(false)}>
-                  Profile
-                </MobileNavLink>
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setIsMenuOpen(false);
-                  }}
-                  className="text-left py-2 text-secondary font-body rounded-none"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <MobileNavLink to="/login" onClick={() => setIsMenuOpen(false)}>
-                  Sign In
-                </MobileNavLink>
-                <MobileNavLink to="/register" onClick={() => setIsMenuOpen(false)}>
-                  Get Started
-                </MobileNavLink>
-              </>
-            )}
           </nav>
         </div>
       </div>

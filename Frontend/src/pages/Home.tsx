@@ -37,7 +37,6 @@ export default function Home() {
               about to eat AI-native food intelligence that explains ingredients at the moment decisions matter."
           actions={[
             { label: "Analyze Food", href: "/analyze", variant: "default" },
-            { label: "History", href: "/history", variant: "outline" },
           ]}
           titleClassName="font-extrabold"
           subtitleClassName="max-w-2xl mx-auto"
