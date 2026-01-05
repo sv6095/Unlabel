@@ -59,8 +59,14 @@ class ConsumerExplanation(BaseModel):
     what_to_know: str
 
 class DecisionEngineResponse(BaseModel):
-    intent_classified: Literal["quick_yes_no", "comparison", "risk_check", "curiosity"]
-    structured_analysis: StructuredIngredientAnalysis
-    decision: Decision
+    # Consumer-facing (primary)
+    verdict: str  # "Daily", "Occasional", or "Limit Frequent Use"
     explanation: ConsumerExplanation
+    
+    # Supporting information
+    intent_classified: Literal["quick_yes_no", "comparison", "risk_check", "curiosity"]
+    key_signals: List[str]  # Top signals that influenced the decision
+    
+    # Technical details (optional, for transparency/debugging)
+    structured_analysis: Optional[StructuredIngredientAnalysis] = None
 

@@ -37,10 +37,11 @@ class DecisionEngineCoordinator:
         explanation = await explanation_agent.explain(decision)
         
         return DecisionEngineResponse(
+            verdict=decision.verdict,
+            explanation=explanation,
             intent_classified=intent,
-            structured_analysis=structured_analysis,
-            decision=decision,
-            explanation=explanation
+            key_signals=decision.key_signals,
+            structured_analysis=structured_analysis  # Include for transparency
         )
 
 coordinator = DecisionEngineCoordinator()
