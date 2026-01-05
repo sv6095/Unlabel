@@ -3,10 +3,16 @@ import sys
 import os
 import traceback
 
-# Add the Backend directory to the Python path
-backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
+# Add the project root to the Python path
+# In Vercel: __file__ is /var/task/api/index.py
+# We need /var/task in the path (one level up from api/)
+# This allows us to import app.main and config.settings
+current_file = os.path.abspath(__file__)  # /var/task/api/index.py
+api_dir = os.path.dirname(current_file)   # /var/task/api
+project_root = os.path.dirname(api_dir)   # /var/task
+
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Suppress warnings about unused modules
 import warnings
