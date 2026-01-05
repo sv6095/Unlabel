@@ -28,21 +28,25 @@ except ImportError as e:
     error_msg = f"Import error: {str(e)}\n{traceback.format_exc()}"
     print(error_msg)
     
-    def handler(event, context):
+    # Create a minimal error handler that matches Vercel's expected format
+    def error_handler(event, context):
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json"},
             "body": f'{{"error": "Import failed", "details": "{str(e)}"}}'
         }
+    handler = error_handler
 except Exception as e:
     # Log other errors
     error_msg = f"Failed to initialize app: {str(e)}\n{traceback.format_exc()}"
     print(error_msg)
     
-    def handler(event, context):
+    # Create a minimal error handler that matches Vercel's expected format
+    def error_handler(event, context):
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json"},
             "body": f'{{"error": "Initialization failed", "details": "{str(e)}"}}'
         }
+    handler = error_handler
 
