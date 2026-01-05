@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "unlabel-backend"
 version = "0.1.0"
 description = "Backend for Unlabel"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "annotated-doc==0.0.4",
     "annotated-types==0.7.0",
