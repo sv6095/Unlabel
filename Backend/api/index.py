@@ -7,14 +7,18 @@ _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
-# Import dependencies
-from mangum import Mangum
-from app.main import app
+# Lazy load to avoid issues with Vercel's handler detection
+_adapter = None
 
-# Create Mangum adapter
-_adapter = Mangum(app, lifespan="off")
+def _get_adapter():
+    global _adapter
+    if _adapter is None:
+        from mangum import Mangum
+        from app.main import app
+        _adapter = Mangum(app, lifespan="off")
+    return _adapter
 
 # Vercel handler function - must be named 'handler'
 def handler(event, context):
-    return _adapter(event, context)
+    return _get_adapter()(event, context)
 
