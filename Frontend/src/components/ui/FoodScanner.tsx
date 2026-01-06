@@ -22,25 +22,88 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cleanup camera stream on unmount or when mode changes
+  // Ensure video plays when stream is set
+  useEffect(() => {
+    if (stream && videoRef.current && mode === 'camera') {
+      const video = videoRef.current;
+      
+      // Set the stream
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+      
+      // Function to play video
+      const playVideo = async () => {
+        if (!video || !video.srcObject) return;
+        
+        try {
+          await video.play();
+          console.log('Video playing successfully');
+        } catch (err: any) {
+          console.error('Video play error:', err);
+          // Retry after a short delay
+          setTimeout(async () => {
+            if (video && video.srcObject) {
+              try {
+                await video.play();
+                console.log('Video playing after retry');
+              } catch (retryErr) {
+                console.error('Video play retry error:', retryErr);
+                setError('Unable to start camera preview. Please try again.');
+              }
+            }
+          }, 500);
+        }
+      };
+      
+      // Try playing immediately if video is ready
+      if (video.readyState >= 2) {
+        playVideo();
+      }
+      
+      // Set up event listeners
+      const handleCanPlay = () => {
+        playVideo();
+      };
+      
+      const handleLoadedMetadata = () => {
+        playVideo();
+      };
+      
+      video.addEventListener('canplay', handleCanPlay);
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      
+      // Cleanup
+      return () => {
+        video.removeEventListener('canplay', handleCanPlay);
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+    }
+  }, [stream, mode]);
+
+  // Cleanup camera stream on unmount or when mode changes away from camera
   useEffect(() => {
     return () => {
-      if (stream) {
+      if (stream && mode !== 'camera') {
         stream.getTracks().forEach(track => track.stop());
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
     };
-  }, [stream]);
+  }, [stream, mode]);
 
   const startCamera = useCallback(async () => {
     try {
       setError(null);
+      setMode('camera'); // Set mode first to show loading state
       
       // Stop any existing stream first
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
+      
+      // Clear video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
       
       // Check if getUserMedia is available
@@ -49,7 +112,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
       }
       
       // Try to get camera with better mobile support
-      const constraints: MediaStreamConstraints = {
+      let constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
@@ -58,21 +121,38 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         audio: false,
       };
       
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
-      setMode('camera');
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current.play().catch(err => {
-              console.error('Video play error:', err);
-            });
-          }
+      // Try with ideal constraints first, fallback if needed
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Camera stream obtained successfully');
+      } catch (err: any) {
+        console.log('Trying fallback constraints...');
+        // Fallback to simpler constraints
+        constraints = {
+          video: {
+            facingMode: { ideal: 'environment' }
+          },
+          audio: false,
         };
+        
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log('Camera stream obtained with fallback constraints');
+        } catch (fallbackErr: any) {
+          // Final fallback - any camera
+          constraints = {
+            video: true,
+            audio: false,
+          };
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log('Camera stream obtained with basic constraints');
+        }
       }
+      
+      // Set the stream - this will trigger the useEffect to play the video
+      setStream(mediaStream);
+      
     } catch (err: any) {
       console.error('Camera access error:', err);
       let errorMessage = 'Unable to access camera. Please check permissions or use file upload.';
@@ -87,6 +167,12 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
       
       setError(errorMessage);
       setMode('choose');
+      
+      // Clean up on error
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
     }
   }, [stream]);
 
@@ -101,31 +187,52 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   }, [stream]);
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !stream) {
+      console.error('Cannot capture: video, canvas, or stream not available');
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
+    // Check if video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('Video not ready for capture');
+      setError('Camera not ready. Please wait a moment and try again.');
+      return;
+    }
+    
+    // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      
-      // Convert to File
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], `food-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          setCapturedFile(file);
-          setCapturedImage(dataUrl);
-          stopCamera();
-          setMode('preview');
-        }
-      }, 'image/jpeg', 0.9);
+    if (!ctx) {
+      console.error('Could not get canvas context');
+      return;
     }
-  }, [stopCamera]);
+    
+    // Draw the current video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to data URL
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    
+    // Convert to File
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `food-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setCapturedFile(file);
+        setCapturedImage(dataUrl);
+        stopCamera();
+        setMode('preview');
+        console.log('Photo captured successfully');
+      } else {
+        console.error('Failed to create blob from canvas');
+        setError('Failed to capture image. Please try again.');
+      }
+    }, 'image/jpeg', 0.9);
+  }, [stopCamera, stream]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -262,21 +369,36 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         {/* Camera Mode */}
         {mode === 'camera' && (
           <div className="space-y-4">
-            <div className="relative aspect-[4/3] bg-muted rounded-xl overflow-hidden max-h-[60vh] sm:max-h-none">
+            <div className="relative aspect-[4/3] bg-black rounded-xl overflow-hidden max-h-[60vh] sm:max-h-none">
+              {!stream && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Starting camera...</p>
+                  </div>
+                </div>
+              )}
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
                 className="w-full h-full object-cover"
+                style={{ 
+                  display: stream ? 'block' : 'none',
+                  minHeight: '100%',
+                  backgroundColor: '#000'
+                }}
               />
               {/* Scan overlay */}
-              <div className="absolute inset-2 sm:inset-4 border-2 border-primary/50 rounded-lg pointer-events-none">
-                <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-l-2 border-primary" />
-                <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-r-2 border-primary" />
-                <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-l-2 border-primary" />
-                <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-r-2 border-primary" />
-              </div>
+              {stream && (
+                <div className="absolute inset-2 sm:inset-4 border-2 border-primary/50 rounded-lg pointer-events-none z-10">
+                  <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-l-2 border-primary" />
+                  <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-r-2 border-primary" />
+                  <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-l-2 border-primary" />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-r-2 border-primary" />
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -290,10 +412,11 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
               <GlassButton
                 variant="primary"
                 onClick={capturePhoto}
+                disabled={!stream || !videoRef.current || (videoRef.current?.videoWidth === 0)}
                 className="flex-1"
               >
                 <Camera className="w-4 h-4" />
-                Capture
+                {stream && videoRef.current && videoRef.current.videoWidth > 0 ? 'Capture' : 'Loading...'}
               </GlassButton>
             </div>
 
