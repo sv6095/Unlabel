@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { AIInput } from '@/components/ui/AIInput';
 import { FoodScanner } from '@/components/ui/FoodScanner';
@@ -126,13 +126,6 @@ const Copilot = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isTyping]);
 
   const addMessage = (msg: Message) => {
     setMessages((prev) => [...prev, msg]);
@@ -277,9 +270,13 @@ const Copilot = () => {
       {/* Chat Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto pt-24 pb-32 px-4 space-y-6"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-20 sm:pt-24 pb-24 sm:pb-28 px-2 sm:px-4 space-y-4 sm:space-y-6"
+        style={{ 
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+        }}
       >
-        <div className="max-w-3xl mx-auto space-y-8">
+        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-8">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -289,7 +286,7 @@ const Copilot = () => {
               )}
             >
               {/* Avatar */}
-              <div className="w-8 h-8 border border-border flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 border border-border flex items-center justify-center shrink-0">
                 {msg.role === 'ai' ? (
                   <img
                     src="/Logo.png"
@@ -304,11 +301,11 @@ const Copilot = () => {
               </div>
 
               {/* Content */}
-              <div className={cn('max-w-[85%]', (msg.type === 'analysis' || msg.type === 'decision') && 'w-full')}>
+              <div className={cn('max-w-[85%] sm:max-w-[85%]', (msg.type === 'analysis' || msg.type === 'decision') && 'w-full max-w-full')}>
                 {msg.type === 'text' && (
                   <div
                     className={cn(
-                      'p-4 text-sm font-body leading-relaxed border',
+                      'p-3 sm:p-4 text-sm font-body leading-relaxed border break-words',
                       msg.role === 'user'
                         ? 'border-primary/30 bg-primary/5'
                         : 'border-border bg-muted/30'
@@ -319,8 +316,8 @@ const Copilot = () => {
                 )}
 
                 {msg.type === 'image' && msg.imagePreview && (
-                  <div className="border border-border w-48">
-                    <img src={msg.imagePreview} alt="Upload" />
+                  <div className="border border-border w-full sm:w-48 max-w-full">
+                    <img src={msg.imagePreview} alt="Upload" className="w-full h-auto" />
                   </div>
                 )}
 
@@ -385,9 +382,9 @@ const Copilot = () => {
           ))}
 
           {isTyping && (
-            <div className="flex gap-4">
-              <div className="w-8 h-8 border border-border" />
-              <div className="border border-border px-4 py-3 text-sm text-muted-foreground">
+            <div className="flex gap-2 sm:gap-4">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 border border-border shrink-0" />
+              <div className="border border-border px-3 sm:px-4 py-2 sm:py-3 text-sm text-muted-foreground">
                 Thinking…
               </div>
             </div>
@@ -396,7 +393,7 @@ const Copilot = () => {
       </div>
 
       {/* Input */}
-      <div className="absolute bottom-0 inset-x-0 p-4 bg-background z-20">
+      <div className="flex-shrink-0 w-full p-2 sm:p-4 bg-background z-20 border-t border-border/30">
         <AIInput
           onSubmit={handleTextSubmit}
           onCameraClick={() => setShowScanner(true)}

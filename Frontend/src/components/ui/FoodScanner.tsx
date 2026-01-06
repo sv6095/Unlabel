@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, FileImage, FileText, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlassCard } from './GlassCard';
@@ -22,29 +22,81 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cleanup camera stream on unmount or when mode changes
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [stream]);
+
   const startCamera = useCallback(async () => {
     try {
       setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+      
+      // Stop any existing stream first
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not supported in this browser');
+      }
+      
+      // Try to get camera with better mobile support
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false,
-      });
+      };
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
       setMode('camera');
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current.play().catch(err => {
+              console.error('Video play error:', err);
+            });
+          }
+        };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Camera access error:', err);
-      setError('Unable to access camera. Please check permissions or use file upload.');
+      let errorMessage = 'Unable to access camera. Please check permissions or use file upload.';
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera permission denied. Please enable camera access in your browser settings.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera found. Please use file upload instead.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = 'Camera is already in use by another application.';
+      }
+      
+      setError(errorMessage);
+      setMode('choose');
     }
-  }, []);
+  }, [stream]);
 
   const stopCamera = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
   }, [stream]);
 
@@ -118,10 +170,11 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   }, [capturedFile, capturedImage, onCapture]);
 
   const handleRetry = useCallback(() => {
+    stopCamera();
     setCapturedImage(null);
     setCapturedFile(null);
     setMode('choose');
-  }, []);
+  }, [stopCamera]);
 
   const handleClose = useCallback(() => {
     stopCamera();
@@ -129,8 +182,8 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   }, [stopCamera, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-lg">
-      <GlassCard variant="green" className="w-full max-w-lg animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-background/80 backdrop-blur-lg overflow-y-auto">
+      <GlassCard variant="green" className="w-full max-w-lg animate-scale-in my-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl text-foreground">
@@ -160,35 +213,35 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
               Capture a food label to analyze its ingredients
             </p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <button
                 onClick={startCamera}
                 className={cn(
-                  "flex flex-col items-center gap-3 p-6 rounded-xl",
+                  "flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6 rounded-xl",
                   "bg-primary/10 border border-primary/30",
-                  "hover:bg-primary/20 transition-all duration-300",
-                  "group"
+                  "hover:bg-primary/20 active:bg-primary/25 transition-all duration-300",
+                  "group touch-manipulation"
                 )}
               >
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Camera className="w-6 h-6 text-primary-foreground" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-transform">
+                  <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                 </div>
-                <span className="font-body text-foreground">Camera</span>
+                <span className="font-body text-sm sm:text-base text-foreground">Camera</span>
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "flex flex-col items-center gap-3 p-6 rounded-xl",
+                  "flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6 rounded-xl",
                   "bg-foreground/5 border border-foreground/10",
-                  "hover:bg-foreground/10 transition-all duration-300",
-                  "group"
+                  "hover:bg-foreground/10 active:bg-foreground/15 transition-all duration-300",
+                  "group touch-manipulation"
                 )}
               >
-                <div className="w-12 h-12 rounded-full bg-foreground/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Upload className="w-6 h-6 text-foreground" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-foreground/10 flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-transform">
+                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
                 </div>
-                <span className="font-body text-foreground">Upload</span>
+                <span className="font-body text-sm sm:text-base text-foreground">Upload</span>
               </button>
             </div>
 
@@ -209,7 +262,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         {/* Camera Mode */}
         {mode === 'camera' && (
           <div className="space-y-4">
-            <div className="relative aspect-[4/3] bg-muted rounded-xl overflow-hidden">
+            <div className="relative aspect-[4/3] bg-muted rounded-xl overflow-hidden max-h-[60vh] sm:max-h-none">
               <video
                 ref={videoRef}
                 autoPlay
@@ -218,11 +271,11 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
                 className="w-full h-full object-cover"
               />
               {/* Scan overlay */}
-              <div className="absolute inset-4 border-2 border-primary/50 rounded-lg pointer-events-none">
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary" />
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary" />
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary" />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary" />
+              <div className="absolute inset-2 sm:inset-4 border-2 border-primary/50 rounded-lg pointer-events-none">
+                <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-l-2 border-primary" />
+                <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-2 border-r-2 border-primary" />
+                <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-l-2 border-primary" />
+                <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-2 border-r-2 border-primary" />
               </div>
             </div>
 
@@ -251,7 +304,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         {/* Preview Mode */}
         {mode === 'preview' && (
           <div className="space-y-4">
-            <div className="relative aspect-[4/3] bg-muted rounded-xl overflow-hidden flex items-center justify-center">
+            <div className="relative aspect-[4/3] bg-muted rounded-xl overflow-hidden flex items-center justify-center max-h-[60vh] sm:max-h-none">
               {capturedImage ? (
                 <img
                   src={capturedImage}
@@ -259,9 +312,9 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
                   className="w-full h-full object-contain"
                 />
               ) : (
-                <div className="text-center">
-                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
-                  <p className="font-body text-muted-foreground">
+                <div className="text-center p-4">
+                  <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground mx-auto mb-2" />
+                  <p className="font-body text-sm sm:text-base text-muted-foreground break-words px-2">
                     {capturedFile?.name}
                   </p>
                   <p className="font-body text-xs text-muted-foreground/60 mt-1">
