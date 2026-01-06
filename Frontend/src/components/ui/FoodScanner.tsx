@@ -17,6 +17,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,6 +26,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   // Ensure video plays when stream is set
   useEffect(() => {
     if (stream && videoRef.current && mode === 'camera') {
+      setIsVideoReady(false); // Reset ready state when stream changes
       const video = videoRef.current;
       
       // Set the stream
@@ -39,6 +41,11 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         try {
           await video.play();
           console.log('Video playing successfully');
+          
+          // Check if video has valid dimensions
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            setIsVideoReady(true);
+          }
         } catch (err: any) {
           console.error('Video play error:', err);
           // Retry after a short delay
@@ -47,6 +54,9 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
               try {
                 await video.play();
                 console.log('Video playing after retry');
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                  setIsVideoReady(true);
+                }
               } catch (retryErr) {
                 console.error('Video play retry error:', retryErr);
                 setError('Unable to start camera preview. Please try again.');
@@ -56,28 +66,52 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
         }
       };
       
+      // Function to check video readiness
+      const checkVideoReady = () => {
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          setIsVideoReady(true);
+        }
+      };
+      
       // Try playing immediately if video is ready
       if (video.readyState >= 2) {
         playVideo();
+        checkVideoReady();
       }
       
       // Set up event listeners
       const handleCanPlay = () => {
         playVideo();
+        checkVideoReady();
       };
       
       const handleLoadedMetadata = () => {
         playVideo();
+        checkVideoReady();
+      };
+      
+      const handleLoadedData = () => {
+        checkVideoReady();
+      };
+      
+      const handlePlaying = () => {
+        checkVideoReady();
       };
       
       video.addEventListener('canplay', handleCanPlay);
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('playing', handlePlaying);
       
       // Cleanup
       return () => {
         video.removeEventListener('canplay', handleCanPlay);
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('playing', handlePlaying);
       };
+    } else {
+      setIsVideoReady(false);
     }
   }, [stream, mode]);
 
@@ -177,6 +211,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   }, [stream]);
 
   const stopCamera = useCallback(() => {
+    setIsVideoReady(false);
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
@@ -189,6 +224,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || !stream) {
       console.error('Cannot capture: video, canvas, or stream not available');
+      setError('Camera not ready. Please wait a moment.');
       return;
     }
 
@@ -197,41 +233,52 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
     
     // Check if video is ready
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      console.error('Video not ready for capture');
+      console.error('Video not ready for capture', { 
+        videoWidth: video.videoWidth, 
+        videoHeight: video.videoHeight,
+        readyState: video.readyState 
+      });
       setError('Camera not ready. Please wait a moment and try again.');
       return;
     }
     
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('Could not get canvas context');
-      return;
-    }
-    
-    // Draw the current video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // Convert to data URL
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    
-    // Convert to File
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const file = new File([blob], `food-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
-        setCapturedFile(file);
-        setCapturedImage(dataUrl);
-        stopCamera();
-        setMode('preview');
-        console.log('Photo captured successfully');
-      } else {
-        console.error('Failed to create blob from canvas');
+    try {
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('Could not get canvas context');
         setError('Failed to capture image. Please try again.');
+        return;
       }
-    }, 'image/jpeg', 0.9);
+      
+      // Draw the current video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert to data URL
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      
+      // Convert to File
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `food-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setCapturedFile(file);
+          setCapturedImage(dataUrl);
+          setIsVideoReady(false); // Reset ready state
+          stopCamera();
+          setMode('preview');
+          console.log('Photo captured successfully');
+        } else {
+          console.error('Failed to create blob from canvas');
+          setError('Failed to capture image. Please try again.');
+        }
+      }, 'image/jpeg', 0.9);
+    } catch (err: any) {
+      console.error('Capture error:', err);
+      setError(`Failed to capture: ${err.message || 'Unknown error'}`);
+    }
   }, [stopCamera, stream]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,6 +327,7 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
     stopCamera();
     setCapturedImage(null);
     setCapturedFile(null);
+    setIsVideoReady(false);
     setMode('choose');
   }, [stopCamera]);
 
@@ -412,11 +460,11 @@ export function FoodScanner({ onCapture, onClose }: FoodScannerProps) {
               <GlassButton
                 variant="primary"
                 onClick={capturePhoto}
-                disabled={!stream || !videoRef.current || (videoRef.current?.videoWidth === 0)}
+                disabled={!stream || !isVideoReady}
                 className="flex-1"
               >
                 <Camera className="w-4 h-4" />
-                {stream && videoRef.current && videoRef.current.videoWidth > 0 ? 'Capture' : 'Loading...'}
+                {isVideoReady ? 'Capture' : 'Loading...'}
               </GlassButton>
             </div>
 
