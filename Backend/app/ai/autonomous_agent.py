@@ -50,11 +50,20 @@ class AutonomousAgent:
         if not key_manager:
             print("WARNING: No API keys configured. Autonomous agent will fail.")
             self.use_key_manager = False
+            self.model = None
             return
         
         self.use_key_manager = True
         self.max_steps = 5  # Prevent infinite loops
         self.progress_callback = None  # Callback for progress updates
+        
+        # Initialize the Gemini model
+        try:
+            self.model = key_manager.create_model('gemini-2.5-flash')
+            print("✅ Autonomous agent model initialized successfully")
+        except Exception as e:
+            print(f"❌ Failed to initialize autonomous agent model: {e}")
+            self.model = None
     
     def set_progress_callback(self, callback):
         """Set callback function for progress updates"""
