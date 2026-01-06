@@ -7,7 +7,7 @@ from app.ai.coordinator import coordinator
 from app.ai.schemas import DecisionRequest
 from app.ai.comparison_schemas import ComparisonRequest, ComparisonResponse, ComparisonInsight
 import google.generativeai as genai
-from config.settings import GEMINI_API_KEY
+from app.ai.key_manager import key_manager
 import json
 
 
@@ -19,11 +19,11 @@ class ComparisonService:
     """
     
     def __init__(self):
-        if not GEMINI_API_KEY:
-            self.model = None
+        if not key_manager:
+            self.use_key_manager = False
             return
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.use_key_manager = True
+        print("✅ ComparisonService initialized with key_manager (multi-key fallback enabled)")
     
     async def compare_products(self, request: ComparisonRequest) -> ComparisonResponse:
         """
@@ -83,7 +83,7 @@ class ComparisonService:
     ) -> ComparisonInsight:
         """Generate high-level comparison insight using AI"""
         
-        if not self.model:
+        if not self.use_key_manager:
             # Fallback if AI not available
             return ComparisonInsight(
                 winner="Similar",
@@ -119,17 +119,21 @@ Be honest if they're similar.
 """
         
         try:
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        response_mime_type="application/json",
-                        temperature=0.4
+            async def execute_comparison(model):
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            response_mime_type="application/json",
+                            temperature=0.4
+                        )
                     )
                 )
-            )
+                return response
+            
+            response = await key_manager.execute_with_fallback(execute_comparison)
             
             data = json.loads(response.text.strip())
             return ComparisonInsight(**data)
@@ -157,7 +161,7 @@ Be honest if they're similar.
     ) -> str:
         """Generate recommendation based on comparison"""
         
-        if not self.model:
+        if not self.use_key_manager:
             return f"Both products have distinct characteristics. Review the analyses to decide which fits your needs."
         
         prompt = f"""Based on this comparison, provide a clear, actionable recommendation.
@@ -183,11 +187,15 @@ Return ONLY the recommendation text, no JSON.
 """
         
         try:
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.model.generate_content(prompt)
-            )
+            async def execute_recommendation(model):
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(prompt)
+                )
+                return response
+            
+            response = await key_manager.execute_with_fallback(execute_recommendation)
             
             return response.text.strip()
             

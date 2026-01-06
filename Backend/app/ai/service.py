@@ -1,22 +1,22 @@
 import google.generativeai as genai
 import json
-from config.settings import GEMINI_API_KEY
+from app.ai.key_manager import key_manager
 from app.ai.schemas import AnalysisResponse, TradeOff
 
 class FoodReasoningEngine:
     def __init__(self):
-        if not GEMINI_API_KEY:
-            print("WARNING: GEMINI_API_KEY not set. AI features will fail.")
-            self.model = None
+        # Use key_manager for automatic API key fallback
+        if not key_manager:
+            print("WARNING: Key manager not initialized. AI features will fail.")
+            self.use_key_manager = False
             return
-            
-        genai.configure(api_key=GEMINI_API_KEY)
-        # Using gemini-2.5-flash
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        self.use_key_manager = True
+        print("✅ FoodReasoningEngine initialized with key_manager (multi-key fallback enabled)")
 
     async def _generate_analysis(self, prompt: str, image_data: bytes = None, mime_type: str = None) -> AnalysisResponse:
         """Shared helper to run generation on text or [text, image] inputs."""
-        if not self.model:
+        if not self.use_key_manager:
             raise ValueError("AI Service not configured (Missing API Key)")
 
         system_instruction = """
@@ -60,17 +60,23 @@ class FoodReasoningEngine:
             else:
                 contents = [system_instruction, prompt]
             
-            # Run the synchronous API in an executor
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.model.generate_content(
-                    contents,
-                    generation_config=genai.types.GenerationConfig(
-                        response_mime_type="application/json"
+            # Define the function to execute with key fallback
+            async def execute_analysis(model):
+                """Execute the analysis with a specific model instance"""
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(
+                        contents,
+                        generation_config=genai.types.GenerationConfig(
+                            response_mime_type="application/json"
+                        )
                     )
                 )
-            )
+                return response
+            
+            # Use key_manager with automatic fallback
+            response = await key_manager.execute_with_fallback(execute_analysis)
             
             # With response_mime_type="application/json", text should be valid JSON
             clean_text = response.text.strip()
@@ -86,7 +92,7 @@ class FoodReasoningEngine:
                 uncertainty_note=data.get("uncertainty_note")
             )
         except Exception as e:
-            print(f"AI Error: {e}")
+            print(f"AI Error (all keys failed): {e}")
             return AnalysisResponse(
                 insight="Could not analyze at this moment.",
                 detailed_reasoning=f"The reasoning engine encountered an error: {str(e)}",
