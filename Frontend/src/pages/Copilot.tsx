@@ -82,11 +82,11 @@ interface DecisionEngineResponse {
   quick_insight: QuickInsight;
   
   // Consumer-facing (primary)
-  verdict: "Daily" | "Occasional" | "Limit Frequent Use";
+  verdict: "Daily" | "Occasional" | "Limit Frequent Use" | string; // Allow string for flexibility
   explanation: ConsumerExplanation;
   
   // Supporting information
-  intent_classified: "quick_yes_no" | "comparison" | "risk_check" | "curiosity";
+  intent_classified: "quick_yes_no" | "comparison" | "risk_check" | "curiosity" | string;
   key_signals: string[]; // Top signals that influenced the decision
   
   // Ingredient translation (explain complex terms)
@@ -172,9 +172,14 @@ const Copilot = () => {
       if (!decisionData.quick_insight) {
         decisionData.quick_insight = { summary: 'Analysis complete.', uncertainty_reason: null };
       }
+      if (!decisionData.quick_insight.summary) {
+        decisionData.quick_insight.summary = 'Analysis complete.';
+      }
+      
       if (!decisionData.verdict) {
         decisionData.verdict = 'Occasional';
       }
+      
       if (!decisionData.explanation) {
         decisionData.explanation = {
           verdict: decisionData.verdict,
@@ -184,16 +189,38 @@ const Copilot = () => {
         };
       }
       
+      // Ensure explanation fields exist
+      if (!decisionData.explanation.why_this_matters) {
+        decisionData.explanation.why_this_matters = [];
+      }
+      if (!decisionData.explanation.when_it_makes_sense) {
+        decisionData.explanation.when_it_makes_sense = 'Consider your individual dietary needs.';
+      }
+      if (!decisionData.explanation.what_to_know) {
+        decisionData.explanation.what_to_know = 'This analysis is informational.';
+      }
+      
       // Ensure we have key_signals
       if (!decisionData.key_signals) {
         decisionData.key_signals = [];
       }
+      
+      // Ensure we have ingredient_translations
       if (!decisionData.ingredient_translations) {
         decisionData.ingredient_translations = [];
       }
+      
+      // Ensure we have uncertainty_flags
       if (!decisionData.uncertainty_flags) {
         decisionData.uncertainty_flags = [];
       }
+      
+      // Ensure intent_classified exists
+      if (!decisionData.intent_classified) {
+        decisionData.intent_classified = 'curiosity';
+      }
+      
+      // structured_analysis is optional, so we don't need to set a default
       
       addMessage({
         id: (Date.now() + 1).toString(),

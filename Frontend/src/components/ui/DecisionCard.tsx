@@ -23,13 +23,36 @@ interface ConsumerExplanation {
 
 interface DecisionData {
   quick_insight: QuickInsight;
-  verdict: "Daily" | "Occasional" | "Limit Frequent Use";
+  verdict: "Daily" | "Occasional" | "Limit Frequent Use" | string; // Allow string for flexibility
   explanation: ConsumerExplanation;
-  intent_classified: "quick_yes_no" | "comparison" | "risk_check" | "curiosity";
+  intent_classified: "quick_yes_no" | "comparison" | "risk_check" | "curiosity" | string;
   key_signals: string[];
   ingredient_translations: IngredientTranslation[];
   uncertainty_flags: string[];
-  structured_analysis?: any; // Optional technical details
+  structured_analysis?: {
+    ingredient_summary?: {
+      primary_components?: string[];
+      added_sugars_present?: boolean;
+      sweetener_type?: "none" | "natural" | "added" | "mixed";
+      fiber_level?: "none" | "low" | "moderate" | "high";
+      protein_level?: "none" | "low" | "moderate" | "high";
+      fat_level?: "none" | "low" | "moderate" | "high";
+      processing_level?: "low" | "moderate" | "high";
+      ultra_processed_markers?: string[];
+      ingredient_count?: number;
+    };
+    food_properties?: {
+      sugar_dominant?: boolean;
+      fiber_protein_support?: "none" | "weak" | "moderate" | "strong";
+      energy_release_pattern?: "rapid" | "mixed" | "slow";
+      satiety_support?: "low" | "moderate" | "high";
+      formulation_complexity?: "simple" | "moderate" | "complex";
+    };
+    confidence_notes?: {
+      data_completeness?: "high" | "medium" | "low";
+      ambiguity_flags?: string[];
+    };
+  } | null;
 }
 
 interface DecisionCardProps {
@@ -250,6 +273,105 @@ export function DecisionCard({ decision }: DecisionCardProps) {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Intent Classification */}
+            {decision.intent_classified && (
+              <div className="p-3 border border-border bg-muted/20 rounded-lg">
+                <h4 className="text-xs font-bold uppercase mb-2 text-muted-foreground">
+                  Analysis Type
+                </h4>
+                <span className="text-xs px-3 py-1.5 bg-muted/30 rounded-full font-medium text-foreground capitalize">
+                  {decision.intent_classified.replace('_', ' ')}
+                </span>
+              </div>
+            )}
+
+            {/* Structured Analysis (Technical Details) - Collapsible */}
+            {decision.structured_analysis && (
+              <div>
+                <details className="group">
+                  <summary className="cursor-pointer text-xs font-bold uppercase text-muted-foreground mb-3 list-none">
+                    <div className="flex items-center gap-2">
+                      <span>Technical Details</span>
+                      <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                    </div>
+                  </summary>
+                  <div className="mt-3 space-y-4 p-4 bg-muted/10 border border-border rounded-lg">
+                    {/* Ingredient Summary */}
+                    {decision.structured_analysis.ingredient_summary && (
+                      <div>
+                        <h5 className="text-xs font-semibold text-foreground mb-2">Ingredient Summary</h5>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {decision.structured_analysis.ingredient_summary.primary_components && (
+                            <p><strong>Primary:</strong> {decision.structured_analysis.ingredient_summary.primary_components.join(', ')}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.added_sugars_present !== undefined && (
+                            <p><strong>Added Sugars:</strong> {decision.structured_analysis.ingredient_summary.added_sugars_present ? 'Yes' : 'No'}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.sweetener_type && (
+                            <p><strong>Sweetener:</strong> {decision.structured_analysis.ingredient_summary.sweetener_type}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.fiber_level && (
+                            <p><strong>Fiber:</strong> {decision.structured_analysis.ingredient_summary.fiber_level}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.protein_level && (
+                            <p><strong>Protein:</strong> {decision.structured_analysis.ingredient_summary.protein_level}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.fat_level && (
+                            <p><strong>Fat:</strong> {decision.structured_analysis.ingredient_summary.fat_level}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.processing_level && (
+                            <p><strong>Processing:</strong> {decision.structured_analysis.ingredient_summary.processing_level}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.ingredient_count !== undefined && (
+                            <p><strong>Ingredient Count:</strong> {decision.structured_analysis.ingredient_summary.ingredient_count}</p>
+                          )}
+                          {decision.structured_analysis.ingredient_summary.ultra_processed_markers && decision.structured_analysis.ingredient_summary.ultra_processed_markers.length > 0 && (
+                            <p><strong>Ultra-processed Markers:</strong> {decision.structured_analysis.ingredient_summary.ultra_processed_markers.join(', ')}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Food Properties */}
+                    {decision.structured_analysis.food_properties && (
+                      <div>
+                        <h5 className="text-xs font-semibold text-foreground mb-2">Food Properties</h5>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {decision.structured_analysis.food_properties.sugar_dominant !== undefined && (
+                            <p><strong>Sugar Dominant:</strong> {decision.structured_analysis.food_properties.sugar_dominant ? 'Yes' : 'No'}</p>
+                          )}
+                          {decision.structured_analysis.food_properties.fiber_protein_support && (
+                            <p><strong>Fiber/Protein Support:</strong> {decision.structured_analysis.food_properties.fiber_protein_support}</p>
+                          )}
+                          {decision.structured_analysis.food_properties.energy_release_pattern && (
+                            <p><strong>Energy Release:</strong> {decision.structured_analysis.food_properties.energy_release_pattern}</p>
+                          )}
+                          {decision.structured_analysis.food_properties.satiety_support && (
+                            <p><strong>Satiety Support:</strong> {decision.structured_analysis.food_properties.satiety_support}</p>
+                          )}
+                          {decision.structured_analysis.food_properties.formulation_complexity && (
+                            <p><strong>Complexity:</strong> {decision.structured_analysis.food_properties.formulation_complexity}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Confidence Notes */}
+                    {decision.structured_analysis.confidence_notes && (
+                      <div>
+                        <h5 className="text-xs font-semibold text-foreground mb-2">Confidence</h5>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {decision.structured_analysis.confidence_notes.data_completeness && (
+                            <p><strong>Data Completeness:</strong> {decision.structured_analysis.confidence_notes.data_completeness}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </details>
               </div>
             )}
           </div>
