@@ -5,7 +5,7 @@ import LightRays from "@/components/ui/LightRays";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen bg-background overflow-hidden">
+    <div className="relative min-h-screen bg-background overflow-x-hidden">
       {/* Light rays background */}
       <div className="absolute inset-0 z-0 min-h-screen">
         <LightRays
@@ -24,7 +24,7 @@ export default function Home() {
       </div>
 
       {/* Foreground */}
-      <div className="relative z-10">
+      <div className="relative z-10 overflow-x-hidden">
         <Header />
 
         <Hero
@@ -33,7 +33,7 @@ export default function Home() {
               
             
           
-          subtitle="Understand what you’re
+          subtitle="Understand what you're
               about to eat AI-native food intelligence that explains ingredients at the moment decisions matter."
           actions={[
             { label: "Analyze Food", href: "/analyze", variant: "default" },
@@ -42,7 +42,9 @@ export default function Home() {
           subtitleClassName="max-w-2xl mx-auto"
         />
 
-        <HowItWorksOrbital />
+        <div className="overflow-visible">
+          <HowItWorksOrbital />
+        </div>
       </div>
     </div>
   );

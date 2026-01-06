@@ -48,17 +48,19 @@ const items = [
 
 export function HowItWorksOrbital() {
   return (
-    <section id="how-it-works" className="py-32 px-4">
-      <div className="max-w-5xl mx-auto text-center mb-16">
-        <h2 className="font-display text-4xl text-foreground mb-4">
+    <section id="how-it-works" className="py-16 sm:py-32 px-4 overflow-hidden">
+      <div className="max-w-5xl mx-auto text-center mb-8 sm:mb-16">
+        <h2 className="font-display text-2xl sm:text-4xl text-foreground mb-4">
           Intelligence, not information
         </h2>
-        <p className="font-body text-muted-foreground max-w-2xl mx-auto">
+        <p className="font-body text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
           The system understands food — and it understands you.
         </p>
       </div>
 
-      <RadialOrbitalTimeline items={items} />
+      <div className="w-full overflow-visible">
+        <RadialOrbitalTimeline items={items} />
+      </div>
     </section>
   );
 }

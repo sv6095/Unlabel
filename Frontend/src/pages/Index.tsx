@@ -6,10 +6,10 @@ import { HowItWorks } from '@/components/sections/HowItWorksOrbital';
 
 const Index = () => {
   return (
-    <div className="relative min-h-screen bg-background overflow-hidden">
+    <div className="relative min-h-screen bg-background overflow-x-hidden">
       <FloatingSeeds />
       <Header />
-      <main>
+      <main className="overflow-visible">
         <HeroSection />
         <HowItWorks />
       </main>
