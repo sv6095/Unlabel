@@ -261,28 +261,102 @@ const Copilot = () => {
     setIsTyping(true);
 
     try {
-      // For images, we'll still use the legacy endpoint for now
-      // TODO: Update backend to support image input for decision engine
+      // Use new decision engine endpoint for images
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/analyze/image', formData, {
+      const response = await api.post<DecisionEngineResponse>('/analyze/decision/image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      // Ensure response data matches expected structure
+      const decisionData: DecisionEngineResponse = response.data;
+      
+      // Log for debugging
+      console.log('Decision engine image response:', decisionData);
+      console.log('Response keys:', Object.keys(decisionData));
+      
+      // Validate that we have the required fields
+      if (!decisionData) {
+        console.error('No response data received');
+        throw new Error('No response from decision engine');
+      }
+      
+      // Check if we got the old format by mistake
+      if ('trade_offs' in decisionData || 'insight' in decisionData) {
+        console.error('Received old format response! Expected DecisionEngineResponse but got AnalysisResponse');
+        throw new Error('Backend returned old format. Please check backend endpoint.');
+      }
+      
+      // Ensure required fields exist (with fallbacks)
+      if (!decisionData.quick_insight) {
+        decisionData.quick_insight = { summary: 'Analysis complete.', uncertainty_reason: null };
+      }
+      if (!decisionData.quick_insight.summary) {
+        decisionData.quick_insight.summary = 'Analysis complete.';
+      }
+      
+      if (!decisionData.verdict) {
+        decisionData.verdict = 'Occasional';
+      }
+      
+      if (!decisionData.explanation) {
+        decisionData.explanation = {
+          verdict: decisionData.verdict,
+          why_this_matters: ['Product analyzed based on ingredient profile'],
+          when_it_makes_sense: 'Consider your individual dietary needs.',
+          what_to_know: 'This analysis is informational.'
+        };
+      }
+      
+      // Ensure explanation fields exist
+      if (!decisionData.explanation.why_this_matters) {
+        decisionData.explanation.why_this_matters = [];
+      }
+      if (!decisionData.explanation.when_it_makes_sense) {
+        decisionData.explanation.when_it_makes_sense = 'Consider your individual dietary needs.';
+      }
+      if (!decisionData.explanation.what_to_know) {
+        decisionData.explanation.what_to_know = 'This analysis is informational.';
+      }
+      
+      // Ensure we have key_signals
+      if (!decisionData.key_signals) {
+        decisionData.key_signals = [];
+      }
+      
+      // Ensure we have ingredient_translations
+      if (!decisionData.ingredient_translations) {
+        decisionData.ingredient_translations = [];
+      }
+      
+      // Ensure we have uncertainty_flags
+      if (!decisionData.uncertainty_flags) {
+        decisionData.uncertainty_flags = [];
+      }
+      
+      // Ensure intent_classified exists
+      if (!decisionData.intent_classified) {
+        decisionData.intent_classified = 'curiosity';
+      }
 
       addMessage({
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        type: 'analysis',
-        analysis: response.data,
+        type: 'decision',
+        decision: decisionData,
         timestamp: new Date(),
       });
-    } catch {
+    } catch (error: any) {
+      console.error('Decision engine image error:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
       addMessage({
         id: (Date.now() + 1).toString(),
         role: 'ai',
         type: 'text',
-        content: "I couldn't analyze that image. Please try again.",
+        content:
+          `I'm having trouble analyzing that image. Error: ${error.message || 'Unknown error'}. Please check the console for details.`,
         timestamp: new Date(),
       });
     } finally {
